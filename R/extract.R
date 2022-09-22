@@ -1,7 +1,7 @@
 #' Get UN Comtrade data
 #'
 #' @param year Data for which year(s) of interest, as a character vector.
-#' @param rcode Country(s) of interest, as a character vector.("All" to represent all countries)
+#' @param rcode Country(s) of interest(ISO code), as a character vector.("All" to represent all countries)
 #' @param pcode Country(s) that have interacted with the reporter country(s). ("All" to represent all countries)
 #' @param ccode commodity code, as a character vector
 #'
@@ -9,7 +9,8 @@
 #' @export
 #'
 #' @examples \dontrun{
-#' dlist <- extract(year = "2018", rcode = "818", pcode = "784", ccode = "190230")
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
+#' dlist <- extract(year = "2018", rcode = c("AFG", "ALB"), pcode = "ARE", ccode = "190230")
 #' dlist$`reporter=reporter`; dlist$`reporter=partner`
 #' }
 extract <- function(year
@@ -18,6 +19,14 @@ extract <- function(year
                     ,ccode
 )
 {
+  # convert ISO code to country_code
+  load("data/countrydf.rda")
+  if(rcode != "ALL"){
+  rcode <- as.vector(countrydf[which(countrydf$ISO3 == rcode), "country_code"])
+  }
+  if(pcode != "ALL"){
+  pcode <- as.vector(countrydf[which(countrydf$ISO3 == pcode), "country_code"])
+  }
 
   # characterized parameters
   year <- stringr::str_replace_all(toString(year), " ","")

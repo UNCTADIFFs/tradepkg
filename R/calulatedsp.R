@@ -6,7 +6,7 @@
 #' @export
 #'
 #' @examples \dontrun{
-#' dlist <- extract(year = "2018", rcode = "818", pcode = "784", ccode = "190230")
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
 #' df_dsp <- calculatedsp(dlist)
 #' }
 calculatedsp <- function(dlist){
