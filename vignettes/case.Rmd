@@ -1,0 +1,42 @@
+---
+title: "case"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{case}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(tradedsp)
+```
+
+
+## Extract data from Comtade
+```{r eval=FALSE, include=FALSE}
+dlist <- extract(year = "2018,2019", rcode = "818", pcode = "51,699", ccode = "190230,844180")
+dlist$`reporter=reporter`
+dlist$`reporter=partner`
+
+```
+
+
+## calculate dsp
+
+```{r eval=FALSE, include=FALSE}
+df_dsp <- calculatedsp(dlist)
+```
+
+
+
+
+
+
+

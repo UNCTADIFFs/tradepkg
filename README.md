@@ -1,2 +1,2 @@
-# tradepkg
-This respository is for developing packages for IFFs project.
+# tradedsp
+This is for developing TradeDSP package.

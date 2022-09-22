@@ -1,0 +1,49 @@
+---
+title: "comparescript"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{comparescript}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+knitr::opts_chunk$set(eval = FALSE, include = FALSE)
+library(tradedsp)
+dlist <- extract(year = "2018,2019", rcode = "818", pcode = "51,699", ccode = "190230,844180")
+```
+
+```{r eval=FALSE, include=FALSE}
+# for Egypt national data
+# load and clean national data
+load("data/ndata.rda")
+ndata <- 
+  ndata %>%
+  mutate(`code(6)` = as.numeric(substring(`code(10)`, 1, 6))) %>%
+  group_by(year, Flow, CODIZO3, `code(6)`) %>%
+  summarise(`value($)` = sum(`value($)`))
+  
+# load country of interest (coi) (where the country should be reporter)
+coi <- dlist$`reporter=reporter`
+comparedf <- coi %>%
+    mutate(Commodity.Code = as.numeric(Commodity.Code)) %>%
+    left_join(ndata, by = c("Year" = "year", "Partner.ISO" = "CODIZO3", "Commodity.Code" = "code(6)")) %>%
+    mutate(diff = `Trade.Value..US..` - `value($)`) %>%
+    arrange(desc(diff)) %>%
+    select(Year, Trade.Flow, Reporter.ISO, Partner.ISO, Commodity.Code, Trade.Value..US.., `value($)`, diff)
+
+
+
+
+
+
+
+
+```
