@@ -20,12 +20,12 @@ extract <- function(year
 )
 {
   # convert ISO code to country_code
-  load("data/countrydf.rda")
+  load("data/countrykey.rda")
   if(rcode != "ALL"){
-  rcode <- as.vector(countrydf[which(countrydf$ISO3 == rcode), "country_code"])
+  rcode <- as.vector(countrykey[which(countrykey$ISO3 == rcode), "country_code"])
   }
   if(pcode != "ALL"){
-  pcode <- as.vector(countrydf[which(countrydf$ISO3 == pcode), "country_code"])
+  pcode <- as.vector(countrykey[which(countrykey$ISO3 == pcode), "country_code"])
   }
 
   # characterized parameters
@@ -53,6 +53,9 @@ extract <- function(year
 
     # extract data
     raw.data.r <- read.csv(stringr,header=TRUE)
+    #
+    raw.data.r <- raw.data.r %>%
+      select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..)
 
     stringp <- paste("http://comtrade.un.org/api/get?"
                      ,"max=",50000,"&" #maximum no. of records returned

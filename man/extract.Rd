@@ -9,7 +9,7 @@ extract(year, rcode, pcode, ccode)
 \arguments{
 \item{year}{Data for which year(s) of interest, as a character vector.}
 
-\item{rcode}{Country(s) of interest, as a character vector.("All" to represent all countries)}
+\item{rcode}{Country(s) of interest(ISO code), as a character vector.("All" to represent all countries)}
 
 \item{pcode}{Country(s) that have interacted with the reporter country(s). ("All" to represent all countries)}
 
@@ -23,7 +23,8 @@ Get UN Comtrade data
 }
 \examples{
 \dontrun{
-dlist <- extract(year = "2018", rcode = "818", pcode = "784", ccode = "190230")
+dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
+dlist <- extract(year = "2018", rcode = c("AFG", "ALB"), pcode = "ARE", ccode = "190230")
 dlist$`reporter=reporter`; dlist$`reporter=partner`
 }
 }
