@@ -19,7 +19,7 @@ Title compare national data with Comtrade data
 }
 \examples{
 \dontrun{
-dlist <- extract(year = "2018,2019", rcode = "818", pcode = "51,699", ccode = "190230,844180")
+dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
 datadf <- ndata
 comparedf <- compare(ndata, dlist)
 }

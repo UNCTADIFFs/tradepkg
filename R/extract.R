@@ -1,7 +1,7 @@
 #' Get UN Comtrade data
 #'
 #' @param year Data for which year(s) of interest, as a character vector.
-#' @param rcode Country(s) of interest, as a character vector.("All" to represent all countries)
+#' @param rcode Country(s) of interest(ISO code), as a character vector.("All" to represent all countries)
 #' @param pcode Country(s) that have interacted with the reporter country(s). ("All" to represent all countries)
 #' @param ccode commodity code, as a character vector
 #'
@@ -9,7 +9,10 @@
 #' @export
 #'
 #' @examples \dontrun{
-#' dlist <- extract(year = "2018", rcode = "818", pcode = "784", ccode = "190230")
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
+#' dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = "190230")
+#' dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = c("190230", "190190"))
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = c("ARE","CHN"), ccode = c("190230", "190190"))
 #' dlist$`reporter=reporter`; dlist$`reporter=partner`
 #' }
 extract <- function(year
@@ -18,11 +21,31 @@ extract <- function(year
                     ,ccode
 )
 {
+  # convert ISO code to country_code
+  load("data/countrykey.rda")
+  if(all(rcode != "ALL")){
+    if(length(rcode) != 1){
+    r <- c()
+    for(i in 1:length(pcode)){
+      r[i] <- countrykey[which(countrykey$ISO3 == rcode[i]), "country_code"]$country_code
+
+    }
+    }
+    r <- countrykey[which(countrykey$ISO3 == rcode), "country_code"]$country_code
+  }
+
+  if(all(pcode != "ALL")){
+    p <- c()
+    for(i in 1:length(pcode)){
+     p[i] <- countrykey[which(countrykey$ISO3 == pcode[i]), "country_code"]$country_code
+
+    }
+  }
 
   # characterized parameters
   year <- stringr::str_replace_all(toString(year), " ","")
-  rcode <- stringr::str_replace_all(toString(rcode), " ","")
-  pcode <- stringr::str_replace_all(toString(pcode), " ","")
+  rcode <- stringr::str_replace_all(toString(r), " ","")
+  pcode <- stringr::str_replace_all(toString(p), " ","")
   ccode <- stringr::str_replace_all(toString(ccode), " ","")
 
 
@@ -44,6 +67,9 @@ extract <- function(year
 
     # extract data
     raw.data.r <- read.csv(stringr,header=TRUE)
+    #
+    raw.data.r <- raw.data.r %>%
+      select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..)
 
     stringp <- paste("http://comtrade.un.org/api/get?"
                      ,"max=",50000,"&" #maximum no. of records returned

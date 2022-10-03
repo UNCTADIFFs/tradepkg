@@ -6,7 +6,7 @@
 #' @export
 #'
 #' @examples \dontrun{
-#' dlist <- extract(year = "2018", rcode = "818", pcode = "784", ccode = "190230")
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
 #' df_dsp <- calculatedsp(dlist)
 #' }
 calculatedsp <- function(dlist){
@@ -58,6 +58,12 @@ calculatedsp <- function(dlist){
     full_join(coi.mirror_i,
               by = c("Reporter.ISO" = "Partner.ISO", "Partner.ISO" = "Reporter.ISO", "Year", "Commodity.code.6"))
 
+  if(nrow(coi_e) != 0){
+    coi_e <- coi_e %>%
+      mutate(CIFValue.x = replace_na(CIFValue.x, 0)) %>%
+      mutate(Trade.Flow.x = ifelse(CIFValue.x == 0, "Export", Trade.Flow.x))
+  }
+
   # Mirroring for import data of Egypt
   coi.mirror_e <-
     coi.mirror %>%
@@ -69,6 +75,13 @@ calculatedsp <- function(dlist){
     full_join(coi.mirror_e,
               by = c("Reporter.ISO" = "Partner.ISO", "Partner.ISO" = "Reporter.ISO", "Year", "Commodity.code.6"))
 
+
+  if(nrow(coi_i) != 0){
+    coi_i <- coi_i %>%
+      mutate(CIFValue.x = replace_na(CIFValue.x, 0)) %>%
+      mutate(Trade.Flow.x = ifelse(CIFValue.x == 0, "Import", Trade.Flow.x))
+  }
+
   # Mirroring for re-export data of Egypt
   coi.mirror_r.i <-
     coi.mirror %>%
@@ -79,6 +92,12 @@ calculatedsp <- function(dlist){
     filter(Trade.Flow == "Re-Export") %>%
     full_join(coi.mirror_r.i,
               by = c("Reporter.ISO" = "Partner.ISO", "Partner.ISO" = "Reporter.ISO", "Year", "Commodity.code.6"))
+   if(nrow(coi_r.e) != 0){
+     coi_r.e <-  coi_r.e %>%
+     mutate(CIFValue.x = replace_na(CIFValue.x, 0)) %>%
+     mutate(Trade.Flow.x = ifelse(CIFValue.x == 0, "Re-Export", Trade.Flow.x))
+   }
+
 
   # Mirroring for re-import data of Egypt
   coi.mirror_r.e <-
@@ -92,14 +111,32 @@ calculatedsp <- function(dlist){
               by = c("Reporter.ISO" = "Partner.ISO", "Partner.ISO" = "Reporter.ISO", "Year", "Commodity.code.6"))
 
 
+  if(nrow(coi_r.i) != 0){
+    coi_r.i <- coi_r.i %>%
+      mutate(CIFValue.x = replace_na(CIFValue.x, 0)) %>%
+      mutate(Trade.Flow.x = ifelse(CIFValue.x == 0, "Re-Import", Trade.Flow.x))
+  }
 
-  # Combine data and calculate difference
-  df_dsp <-
-    bind_rows(coi_e, coi_i, coi_r.e, coi_r.i) %>%
+  # Combine data
+  dspdf <- bind_rows(coi_e, coi_i, coi_r.e, coi_r.i)
+
+  # calculate total value for each kind of flow
+  flow_total <- dspdf %>%
+    group_by(Year, Trade.Flow.x) %>%
+    summarise(CIF_total = sum(CIFValue.x, na.rm = TRUE))
+
+  # caculate absolute and relative difference
+  dspdf <- dspdf %>%
+    left_join(flow_total, by = c("Year", "Trade.Flow.x")) %>%
+    # absolute value
     mutate(diff = CIFValue.x - CIFValue.y) %>%
-    mutate(ratio = diff / CIFValue.x)
+    # relative value to this flow
+    mutate(ratio_to_flow = diff / CIFValue.x) %>%
+    # relative value to total value of this kind of flow
+    mutate(ratio_to_total = diff / CIF_total)
 
 
-  return(df_dsp)
+
+  return(dspdf)
 
   }
