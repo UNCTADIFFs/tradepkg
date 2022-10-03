@@ -10,7 +10,9 @@
 #'
 #' @examples \dontrun{
 #' dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
-#' dlist <- extract(year = "2018", rcode = c("AFG", "ALB"), pcode = "ARE", ccode = "190230")
+#' dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = "190230")
+#' dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = c("190230", "190190"))
+#' dlist <- extract(year = "2018", rcode = "EGY", pcode = c("ARE","CHN"), ccode = c("190230", "190190"))
 #' dlist$`reporter=reporter`; dlist$`reporter=partner`
 #' }
 extract <- function(year
@@ -21,17 +23,29 @@ extract <- function(year
 {
   # convert ISO code to country_code
   load("data/countrykey.rda")
-  if(rcode != "ALL"){
-  rcode <- as.vector(countrykey[which(countrykey$ISO3 == rcode), "country_code"])
+  if(all(rcode != "ALL")){
+    if(length(rcode) != 1){
+    r <- c()
+    for(i in 1:length(pcode)){
+      r[i] <- countrykey[which(countrykey$ISO3 == rcode[i]), "country_code"]$country_code
+
+    }
+    }
+    r <- countrykey[which(countrykey$ISO3 == rcode), "country_code"]$country_code
   }
-  if(pcode != "ALL"){
-  pcode <- as.vector(countrykey[which(countrykey$ISO3 == pcode), "country_code"])
+
+  if(all(pcode != "ALL")){
+    p <- c()
+    for(i in 1:length(pcode)){
+     p[i] <- countrykey[which(countrykey$ISO3 == pcode[i]), "country_code"]$country_code
+
+    }
   }
 
   # characterized parameters
   year <- stringr::str_replace_all(toString(year), " ","")
-  rcode <- stringr::str_replace_all(toString(rcode), " ","")
-  pcode <- stringr::str_replace_all(toString(pcode), " ","")
+  rcode <- stringr::str_replace_all(toString(r), " ","")
+  pcode <- stringr::str_replace_all(toString(p), " ","")
   ccode <- stringr::str_replace_all(toString(ccode), " ","")
 
 
