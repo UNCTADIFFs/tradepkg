@@ -14,6 +14,7 @@
 #' dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = c("190230", "190190"))
 #' dlist <- extract(year = "2018", rcode = "EGY", pcode = c("ARE","CHN"), ccode = c("190230", "190190"))
 #' dlist$`reporter=reporter`; dlist$`reporter=partner`
+#' dlist$`total_for_all`; dlist$`total_for_c`
 #' }
 extract <- function(year
                     ,rcode
@@ -88,7 +89,18 @@ extract <- function(year
     # extract data
     raw.data.p <- read.csv(stringp,header=TRUE)
 
-    raw.data <- list("reporter=reporter" = raw.data.r, "reporter=partner" = raw.data.p)
+
+    # get total value
+    # for specific commodity
+    total_for_c <- getotal(rcode, year, ccode)
+    # for all commodities
+    total_for_all <- getotal(rcode, year, "all")
+
+    # store the results as a list
+    raw.data <- list("reporter=reporter" = raw.data.r, "reporter=partner" = raw.data.p, "total_for_c" =  total_for_c, "total_for_all" = total_for_all)
+
+
+
     # return data
     return(raw.data)
 
