@@ -6,8 +6,21 @@
 #' @return A dataframe that stores total value for later relative calculating
 #' @export
 #'
-#' @examples
+#' @examples \dontrun{
+#' for specific commodity
+#' total_for_c <- getotal(rcode = "EGY", year = "2018", ccode= "190230")
+#' for all commodities
+#' total_for_all <- getotal(rcode, year, "all")
+#' }
 getotal <- function(rcode, year, ccode){
+
+  # beta
+  x <- 0.095
+  load("data/beta.rda")
+  betadf <-
+    beta %>%
+    mutate(value = tidyr::replace_na(value, x))
+
   # convert ISO code to country_code
   load("data/countrykey.rda")
   if(all(rcode != "ALL")){
@@ -42,20 +55,30 @@ getotal <- function(rcode, year, ccode){
                    ,sep = ""
   )
   # extract data
-  raw.data.r <- read.csv(stringr,header=TRUE)
+  raw.data <- read.csv(stringr,header=TRUE)
   # clean raw data
-  raw.data.r <- raw.data.r %>%
+  raw.data <- raw.data %>%
     select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..)
 
+  # calculate CIF
+  raw.data.new <- raw.data %>%
+    select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..) %>%
+    rename(Commodity.code.6 =  `Commodity.Code`) %>%
+    mutate(Commodity.code.4 = as.numeric(substring(Commodity.code.6, 1, 4))) %>%
+    left_join(betadf, by = c("Reporter.ISO" = "importeriso", "Partner.ISO" = "exporteriso", "Commodity.code.4" = "commoditycode", "Year" = "year")) %>%
+    mutate(CIFValue = ifelse(Trade.Flow == "Export", Trade.Value..US.. * value, Trade.Value..US..)) %>%
+    group_by(Year, `Trade.Flow`, `Partner.ISO`, `Reporter.ISO`, `Commodity.code.6`) %>%
+    summarise(CIFValue = sum(CIFValue))
   # get total flow of exports/imports for that reporter and year for that commodity
-  total_df <- raw.data.r %>%
-    group_by(Reporter, Year, Trade.Flow, Commodity.Code) %>%
-    summarise(total_for_c = sum(Trade.Value..US..))
+  total_df <- raw.data.new %>%
+    group_by(Reporter.ISO, Year, Trade.Flow, Commodity.code.6) %>%
+    summarise(total_for_c = sum(CIFValue, na.rm = TRUE))
   }
 
 
   # if ccode is for all
   # define url address
+  if(ccode == "ALL"){
   stringr <- paste("http://comtrade.un.org/api/get?"
                    ,"max=",50000,"&" #maximum no. of records returned
                    ,"type=","C","&" #type of trade (c=commodities)
@@ -71,14 +94,23 @@ getotal <- function(rcode, year, ccode){
   )
   # extract data
   raw.data.r <- read.csv(stringr,header=TRUE)
-  # clean raw data
+
+  # calculate CIF
   raw.data.r <- raw.data.r %>%
-    select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..)
+    select(Classification, Year, Trade.Flow.Code, Trade.Flow, Reporter.ISO, Reporter, Partner.ISO, Partner, Commodity.Code, Commodity, Trade.Value..US..) %>%
+    rename(Commodity.code.6 =  `Commodity.Code`) %>%
+    mutate(Commodity.code.4 = as.numeric(substring(Commodity.code.6, 1, 4))) %>%
+    left_join(betadf, by = c("Reporter.ISO" = "importeriso", "Partner.ISO" = "exporteriso", "Commodity.code.4" = "commoditycode", "Year" = "year")) %>%
+    mutate(CIFValue = ifelse(Trade.Flow == "Export", Trade.Value..US.. * value, Trade.Value..US..)) %>%
+    group_by(Year, `Trade.Flow`, `Partner.ISO`, `Reporter.ISO`, `Commodity.code.6`) %>%
+    summarise(CIFValue = sum(CIFValue))
 
   # get total flow of exports/imports for that reporter and year
   total_df <- raw.data.r %>%
-    group_by(Reporter, Year, Trade.Flow,) %>%
-    summarise(total_for_all = sum(Trade.Value..US..))
+    group_by(Reporter.ISO, Year, Trade.Flow) %>%
+    summarise(total_for_all = sum(CIFValue))
+  }
+
 
 
 

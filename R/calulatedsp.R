@@ -121,22 +121,22 @@ calculatedsp <- function(dlist){
   dspdf <- bind_rows(coi_e, coi_i, coi_r.e, coi_r.i)
 
   # calculate total value
-  total_for_all <- dlist$`total_for_all`
+  #total_for_all <- dlist$`total_for_all`
   total_for_c <- dlist$`total_for_c`
 
 
 
-  # caculate absolute and relative difference
+  # calculate absolute and relative difference
   dspdf <- dspdf %>%
     # absolute value
     mutate(diff = CIFValue.x - CIFValue.y) %>%
     # relative value to this flow for specific commodity
-    left_join(total_for_c, by = c("Year", "Trade.Flow.x", "Commodity.Code"="Commodity.code.6")) %>%
+    left_join(total_for_c, by = c("Year", "Trade.Flow.x" = "Trade.Flow", "Commodity.code.6")) %>%
     # relative value to total value for specific commodity
-    mutate(ratio_to_total_c = diff / total_for_c) %>%
+    mutate(ratio_to_total_c = diff / total_for_c)
     # relative value to this flow for all commodities
-    left_join(total_for_all, by = c("Year", "Trade.Flow.x", "Commodity.Code"="Commodity.code.6")) %>%
-    mutate(ratio_to_total_all = diff / total_for_all)
+   #left_join(total_for_all, by = c("Year", "Trade.Flow.x", "Commodity.Code"="Commodity.code.6")) %>%
+    #mutate(ratio_to_total_all = diff / total_for_all)
 
 
 

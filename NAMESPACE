@@ -3,4 +3,5 @@
 export(calculatedsp)
 export(compare)
 export(extract)
+export(getotal)
 importFrom(dplyr,"%>%")

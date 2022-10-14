@@ -28,5 +28,6 @@ dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = "1902
 dlist <- extract(year = "2018,2017", rcode = "EGY", pcode = "ARE", ccode = c("190230", "190190"))
 dlist <- extract(year = "2018", rcode = "EGY", pcode = c("ARE","CHN"), ccode = c("190230", "190190"))
 dlist$`reporter=reporter`; dlist$`reporter=partner`
+dlist$`total_for_all`; dlist$`total_for_c`
 }
 }
