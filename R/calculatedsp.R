@@ -17,7 +17,7 @@ calculatedsp <- function(dlist){
   # load coi's partners' data (where coi's partners should be reporter)
   coi.mirror <- dlist$`reporter=partner`
   # load beta
-  x <- 0.095
+  x <- 0.06
   load("data/beta.rda")
   betadf <-
    beta %>%
@@ -32,6 +32,8 @@ calculatedsp <- function(dlist){
     rename(Commodity.code.6 =  `Commodity.Code`) %>%
     mutate(Commodity.code.4 = as.numeric(substring(Commodity.code.6, 1, 4))) %>%
     left_join(betadf, by = c("Reporter.ISO" = "importeriso", "Partner.ISO" = "exporteriso", "Commodity.code.4" = "commoditycode", "Year" = "year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    filter(Partner.ISO != "WLD") %>%
     mutate(CIFValue = ifelse(Trade.Flow == "Export", Trade.Value..US.. * value, Trade.Value..US..)) %>%
     group_by(Year, `Trade.Flow`, `Partner.ISO`, `Reporter.ISO`, `Commodity.code.6`) %>%
     summarise(CIFValue = sum(CIFValue))
@@ -42,6 +44,8 @@ calculatedsp <- function(dlist){
      rename(Commodity.code.6 =  `Commodity.Code`) %>%
      mutate(Commodity.code.4 = as.numeric(substring(Commodity.code.6, 1, 4))) %>%
      left_join(betadf, by = c("Reporter.ISO" = "exporteriso", "Partner.ISO" = "importeriso", "Commodity.code.4" = "commoditycode", "Year" = "year")) %>%
+     mutate(value = tidyr::replace_na(value, x)) %>%
+     filter(Partner.ISO != "WLD") %>%
      mutate(CIFValue = ifelse(Trade.Flow == "Export", Trade.Value..US.. * value, Trade.Value..US..)) %>%
      group_by(Year, `Trade.Flow`, `Partner.ISO`, `Reporter.ISO`, `Commodity.code.6`) %>%
      summarise(CIFValue = sum(CIFValue))
@@ -131,9 +135,12 @@ calculatedsp <- function(dlist){
     # absolute value
     mutate(diff = CIFValue.x - CIFValue.y) %>%
     # relative value to this flow for specific commodity
-    left_join(total_for_c, by = c("Year", "Trade.Flow.x" = "Trade.Flow", "Commodity.code.6")) %>%
+    full_join(total_for_c, by = c("Year", "Trade.Flow.x" = "Trade.Flow", "Commodity.code.6")) %>%
+    # using 0 to assign missing value
+    mutate(total_for_c = tidyr::replace_na(total_for_c, 0)) %>%
     # relative value to total value for specific commodity
-    mutate(ratio_to_total_c = diff / total_for_c)
+    mutate(ratio_to_total_c = abs(diff / total_for_c)) %>%
+    select(-Reporter.ISO.y)
     # relative value to this flow for all commodities
    #left_join(total_for_all, by = c("Year", "Trade.Flow.x", "Commodity.Code"="Commodity.code.6")) %>%
     #mutate(ratio_to_total_all = diff / total_for_all)

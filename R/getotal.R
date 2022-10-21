@@ -15,7 +15,7 @@
 getotal <- function(rcode, year, ccode){
 
   # beta
-  x <- 0.095
+  x <- 0.06
   load("data/beta.rda")
   betadf <-
     beta %>%
@@ -66,6 +66,8 @@ getotal <- function(rcode, year, ccode){
     rename(Commodity.code.6 =  `Commodity.Code`) %>%
     mutate(Commodity.code.4 = as.numeric(substring(Commodity.code.6, 1, 4))) %>%
     left_join(betadf, by = c("Reporter.ISO" = "importeriso", "Partner.ISO" = "exporteriso", "Commodity.code.4" = "commoditycode", "Year" = "year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    filter(Partner.ISO != "WLD") %>%
     mutate(CIFValue = ifelse(Trade.Flow == "Export", Trade.Value..US.. * value, Trade.Value..US..)) %>%
     group_by(Year, `Trade.Flow`, `Partner.ISO`, `Reporter.ISO`, `Commodity.code.6`) %>%
     summarise(CIFValue = sum(CIFValue))
