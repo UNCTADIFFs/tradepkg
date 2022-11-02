@@ -18,6 +18,7 @@ Title Calulate discrepancy
 \examples{
 \dontrun{
 dlist <- extract(year = "2018", rcode = "EGY", pcode = "ARE", ccode = "190230")
+year = 2016, rcode = "CHN", pcode = "TWN", ccode = "2618"
 df_dsp <- calculatedsp(dlist)
 }
 }

@@ -23,6 +23,7 @@ Title extract data for relative calculating (total flow of exports/imports for t
 \dontrun{
 for specific commodity
 total_for_c <- getotal(rcode = "EGY", year = "2018", ccode= "190230")
+rcode = "CHN", year = "2016", ccode = "2848"
 for all commodities
 total_for_all <- getotal(rcode, year, "all")
 }
