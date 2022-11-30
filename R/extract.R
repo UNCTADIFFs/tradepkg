@@ -93,7 +93,7 @@ extract <- function(year
     )
 
     # extract data
-    raw.data.p <- read.csv(stringp,header=TRUE)
+    raw.data.p <-  read.csv(stringp,header=TRUE)
 
 
     # get total value

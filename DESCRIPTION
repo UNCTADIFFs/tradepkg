@@ -16,7 +16,8 @@ imports:
       readxl,
       devtools,
       magrittr,
-      tidyr
+      tidyr,
+      httr
 RoxygenNote: 7.2.1
 Suggests: 
     knitr,
