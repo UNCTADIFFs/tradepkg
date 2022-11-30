@@ -16,9 +16,12 @@ imports:
       readxl,
       devtools,
       magrittr,
-      tidyr
+      tidyr,
+      httr
 RoxygenNote: 7.2.1
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
+Config/testthat/edition: 3
