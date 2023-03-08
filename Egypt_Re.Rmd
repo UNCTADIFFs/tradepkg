@@ -1,0 +1,405 @@
+---
+title: "Egypt(including re-exports and re-imports)"
+author: "Xiaohan Ma"
+date: "2022-12-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## extract data: one year, all reporters, all commodies, all partners
+
+```{r eval=FALSE, include=FALSE}
+library(httr)
+
+options(timeout = 10000)
+
+rc <- "all"
+year <- 2016
+# generate URL
+url <- paste("https://comtrade.un.org/api/get/bulk/C/A/"
+                 , year,"/"
+                 , rc, "/"
+                 , "HS?"
+                 , "token=", "JDtnTvUZt7dIR0EGZmZBcuDj8CnlnhNLhfR75cV5yNbtGsPjE3SaIhBvYlGTtSJyWepgdaHJsjWjTXvycdRd9TbsAuKNwQBHxO0WTWA7JBtdGKg5ZbkE3cnwwdIVJ/R07W1dCPSf6737gGlmsK12jQ=="
+                 ,sep = ""
+)
+
+
+# download data file
+# download.file(stringr,  destfile = "d.zip",cacheOK=FALSE, quiet = TRUE, mode = "wb")
+ GET(url = url,
+    write_disk("gtf.zip"),
+    verbose()) -> res
+ #
+ df <- read.csv(archive_read("gtf.zip"), col_types = cols())
+
+
+```
+
+
+
+## load and clean data: selcet one reporter (818Egypt) and prepare mirror data
+
+```{r}
+# load packages
+library(tidyverse)
+library(data.table)
+library(summarytools)
+library(stargazer)
+library(knitr)
+
+# load data
+ dlist <- fread("2016df.csv")
+
+  dlist_Class <- dlist %>%
+  group_by(Classification) %>%
+     summarise(n = n())
+  
+    
+    dlist <- dlist %>% 
+    select(`Year`,
+           `Trade Flow`,
+           `Reporter Code`,
+           `Reporter ISO`,
+           `Partner Code`,
+           `Partner ISO`,
+           `Commodity Code`,
+           `Trade Value (US$)`)  %>%
+    filter(nchar(`Commodity Code`) == 6 & `Partner ISO` != "WLD") %>%
+    mutate(`Reporter Code` = as.character(`Reporter Code`), `Partner Code` = as.character(`Partner Code`), Year = as.character(Year)) %>%
+    mutate(`Reporter Code` = str_pad(`Reporter Code`, 3, side = "left", "0"), `Partner Code` = str_pad(`Partner Code`, 3, side = "left", 0))
+
+
+dlist_Class |> kable()
+
+      # country of interest
+  coi <- dlist %>%
+    filter(`Reporter Code` == "818")
+ 
+ # mirror data of coi
+  coi.mirror <- dlist %>%
+    filter(`Partner Code` == "818")
+
+ # remove large object
+  #rm(dlist)
+  
+  #
+ #  save(dlist, file = "dlist.rda")
+  
+
+head(coi, 10) |> kable()
+head(coi.mirror, 10) |> kable()
+```
+
+
+
+## prepare dataframes for relative calculating: 1) totaldf1 for calculating relative value 1 (dsp/sum of (one commodity, all partners)); 2) totaldf2 for calculating relative value 2 (dsp/sum of (all commodites, all partners))
+
+### load and clean beta dataframe
+```{r}
+# clean beta
+x <- 0.06
+load("data/countrykey.rda")
+  
+  # beta value from oecd
+  load("data/beta_oecd_2016.rda")
+  
+  beta_oecd <-
+    beta_oecd_2016 %>%
+    mutate(value = tidyr::replace_na(Value, x)) %>%
+    mutate(TIME = as.character(TIME)) %>%
+    filter(Measure == "Value") %>%
+    select(TIME, REPORTER, PARTNER, COM_H3, value)
+  
+  # calculate the number of missing value in `value` 
+  sum(is.na(beta_oecd$value))
+  
+
+  # beta value from unctad
+  load("data/beta_unctad_2016.rda")
+ 
+   beta_unctad <-
+    beta_unctad_2016 %>%
+    mutate(value = tidyr::replace_na(`Transport costs to FOB value`, x)) %>%
+    left_join(countrykey, by = c("Origin" = "country_code")) %>%
+    rename(REPORTER = ISO3) %>%
+    left_join(countrykey, by = c("Destination" = "country_code")) %>%
+    rename(PARTNER = ISO3) %>%
+    select(Year, REPORTER, PARTNER, HS2012Product, value) %>%
+    mutate(value = value/100) %>%
+    mutate(Year = as.character(Year))
+   
+    # calculate the number of missing value in `value` 
+    sum(is.na(beta_oecd$value))
+    
+    
+    # load beta default
+    load("data/beta_default_2016.rda")
+    
+    # calculate the number of missing value in `value` 
+    sum(is.na(beta_default$value))
+  
+    # test whether there is 0 value in the variable `value`
+    #beta_default_0 <- beta_default[which(beta_default$value == 0), ]
+    #beta_unctad_0 <- beta_unctad[which(beta_unctad$value == 0), ]
+    #beta_oecd_0 <-  beta_oecd[which(beta_oecd$value == 0), ]  
+
+  #remove large objects
+   rm(beta_oecd_2016)
+   rm(beta_unctad_2016)
+   
+head(beta_oecd, 10) |> kable()
+head(beta_unctad,10) |> kable()
+head(beta_default,10) |> kable()
+
+#head(beta_oecd_0, 10) |> kable()
+#head(beta_unctad_0,10) |> kable()
+#head(beta_default_0, 10) |> kable()
+   
+```
+
+
+### merge and calculate CIFValue
+```{r}
+#prepare TradeValue_origin, CIFValue_oecd
+ coi.new <-
+    coi %>%
+    rename(Commodity.code.6 =  `Commodity Code`) %>%
+    mutate(Commodity.code.4 = substring(Commodity.code.6, 1, 4)) %>%
+    left_join(beta_oecd, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.4" = "COM_H3", "Year" = "TIME")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    filter(`Partner ISO` != "WLD" & !is.na(`Partner ISO`)) %>%
+    mutate(CIFValue_oecd = case_when(`Trade Flow` == "Export" ~ `Trade Value (US$)` * (1 + value), `Trade Flow` == "Import" ~ `Trade Value (US$)`, `Trade Flow` == "Re-Export" ~ `Trade Value (US$)` * (1 + value), `Trade Flow` == "Re-Import" ~ `Trade Value (US$)`)) %>%
+    rename(TradeValue_origin = `Trade Value (US$)`) %>%
+    select(-value) %>%
+    left_join(beta_unctad, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.6" = "HS2012Product", "Year" = "Year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    mutate(CIFValue_unctad = case_when(`Trade Flow` == "Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Import" ~ `TradeValue_origin`, `Trade Flow` == "Re-Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Re-Import" ~ `TradeValue_origin`)) %>%
+    select(-value) %>%
+    left_join(beta_default, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.6" = "HS2012Product", "Year" = "Year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    mutate(CIFValue_default = case_when(`Trade Flow` == "Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Import" ~ `TradeValue_origin`,  `Trade Flow` == "Re-Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Re-Import" ~ `TradeValue_origin`)) %>%
+  select(-value)
+
+df <- coi.new %>%
+ group_by(`Trade Flow`) %>%
+summarise(n = n())
+
+df
+
+#prepare TradeValue_origin, CIFValue_oecd
+coi.mirror.new <- 
+  coi.mirror %>%
+    rename(Commodity.code.6 =  `Commodity Code`) %>%
+    mutate(Commodity.code.4 = substring(Commodity.code.6, 1, 4)) %>%
+    left_join(beta_oecd, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.4" = "COM_H3", "Year" = "TIME")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    filter(`Partner ISO` != "WLD" & !is.na(`Partner ISO`)) %>%
+    mutate(CIFValue_oecd = case_when(`Trade Flow` == "Export" ~ `Trade Value (US$)` * (1 + value), `Trade Flow` == "Import" ~ `Trade Value (US$)`, `Trade Flow` == "Re-Export" ~ `Trade Value (US$)` * (1 + value), `Trade Flow` == "Re-Import" ~ `Trade Value (US$)`)) %>%
+    rename(TradeValue_origin = `Trade Value (US$)`) %>%
+    select(-value) %>%
+    left_join(beta_unctad, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.6" = "HS2012Product", "Year" = "Year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    mutate(CIFValue_unctad = case_when(`Trade Flow` == "Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Import" ~ `TradeValue_origin`,  `Trade Flow` == "Re-Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Re-Import" ~ `TradeValue_origin`)) %>%
+    select(-value) %>%
+    left_join(beta_default, by = c("Reporter ISO" = "REPORTER", "Partner ISO" = "PARTNER", "Commodity.code.6" = "HS2012Product", "Year" = "Year")) %>%
+    mutate(value = tidyr::replace_na(value, x)) %>%
+    mutate(CIFValue_default = case_when(`Trade Flow` == "Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Import" ~ `TradeValue_origin`,  `Trade Flow` == "Re-Export" ~ `TradeValue_origin` * (1 + value), `Trade Flow` == "Re-Import" ~ `TradeValue_origin`)) %>%
+  select(-value)
+
+mirror_df <- coi.mirror.new %>%
+ group_by(`Trade Flow`) %>%
+summarise(n = n())
+
+mirror_df
+
+head(coi.new, 10) |> kable()
+head(coi.mirror.new, 10) |> kable()
+
+```
+
+### prepare dataframes for relative calculating
+```{r}
+  # totaldf1 for calculating relative value 1 (dsp/sum of (one commodity, all partners))
+    total_df1 <- coi.new %>%
+      group_by(`Reporter ISO`, Year, `Trade Flow`, `Commodity.code.6`) %>%
+      summarise(total_for_c_origin = sum(TradeValue_origin, na.rm = TRUE), total_for_c_oecd = sum(CIFValue_oecd, na.rm = TRUE), total_for_c_unctad = sum(CIFValue_unctad, na.rm = TRUE), total_for_c_default = sum(CIFValue_default, na.rm = TRUE))
+
+  # totaldf2 for calculating relative value 2 (dsp/sum of (all commodites, all partners))
+    total_df2 <- coi.new %>%
+      group_by(`Reporter ISO`, Year, `Trade Flow`) %>%
+      summarise(total_for_all_origin = sum(TradeValue_origin, na.rm = TRUE), total_for_all_oecd = sum(CIFValue_oecd, na.rm = TRUE), total_for_all_unctad = sum(CIFValue_unctad, na.rm = TRUE), total_for_all_default = sum(CIFValue_default, na.rm = TRUE))
+
+    
+head(total_df1, 10) |> kable()
+total_df2 |> kable()
+```
+
+
+## calculate dsp
+
+### prepare mirroring dataframe: coi_i; coi_e and merge them
+```{r}
+ # mirror data
+  # Mirroring for export data of Egypt
+  coi.mirror_i <-
+    coi.mirror.new %>%
+    filter(`Trade Flow` == "Import")
+
+  coi_e <-
+    coi.new %>%
+    filter(`Trade Flow` == "Export") %>%
+    full_join(coi.mirror_i,
+              by = c("Reporter ISO" = "Partner ISO", "Partner ISO" = "Reporter ISO", "Year", "Commodity.code.6"))
+
+  
+  if(nrow(coi_e) != 0){
+    coi_e <- coi_e %>%
+      mutate(CIFValue_oecd.x = replace_na(CIFValue_oecd.x, 0)) %>%
+      mutate(CIFValue_unctad.x = replace_na(CIFValue_unctad.x, 0)) %>%
+      mutate(TradeValue_origin.x = replace_na(TradeValue_origin.x, 0)) %>%
+      mutate(CIFValue_default.x = replace_na(CIFValue_default.x, 0)) %>%
+      mutate(CIFValue_oecd.y = replace_na(CIFValue_oecd.y, 0)) %>%
+      mutate(CIFValue_unctad.y = replace_na(CIFValue_unctad.y, 0)) %>%
+      mutate(TradeValue_origin.y = replace_na(TradeValue_origin.y, 0)) %>%
+      mutate(CIFValue_default.y = replace_na(CIFValue_default.y, 0)) %>%
+      mutate(`Trade Flow.x` = ifelse(CIFValue_oecd.x == 0, "Export", `Trade Flow.x`)) %>%
+      mutate(`Trade Flow.y` = ifelse(CIFValue_oecd.y == 0, "Import", `Trade Flow.y`))
+    
+  }
+
+ # Mirroring for import data of Egypt
+  coi.mirror_e <-
+    coi.mirror.new %>%
+    filter(`Trade Flow` == "Export")
+
+  coi_i <-
+    coi.new %>%
+    filter(`Trade Flow` == "Import") %>%
+    full_join(coi.mirror_e,
+              by = c("Reporter ISO" = "Partner ISO", "Partner ISO" = "Reporter ISO", "Year", "Commodity.code.6"))
+  
+
+
+  if(nrow(coi_i) != 0){
+    coi_i <- coi_i %>%
+      mutate(CIFValue_oecd.x = replace_na(CIFValue_oecd.x, 0)) %>%
+      mutate(CIFValue_unctad.x = replace_na(CIFValue_unctad.x, 0)) %>%
+      mutate(TradeValue_origin.x = replace_na(TradeValue_origin.x, 0)) %>%
+      mutate(CIFValue_default.x = replace_na(CIFValue_default.x, 0)) %>%
+      mutate(CIFValue_oecd.y = replace_na(CIFValue_oecd.y, 0)) %>%
+      mutate(CIFValue_unctad.y = replace_na(CIFValue_unctad.y, 0)) %>%
+      mutate(TradeValue_origin.y = replace_na(TradeValue_origin.y, 0)) %>%
+      mutate(CIFValue_default.y = replace_na(CIFValue_default.y, 0)) %>%
+      mutate(`Trade Flow.x` = ifelse(CIFValue_oecd.x == 0, "Import", `Trade Flow.x`)) %>%
+      mutate(`Trade Flow.y` = ifelse(CIFValue_oecd.y == 0, "Export", `Trade Flow.y`))
+    
+  }
+  
+   # Mirroring for Re-Export data of Egypt
+  
+  coi.mirror_ri <-
+    coi.mirror.new %>%
+    filter(`Trade Flow` == "Re-Import")
+
+  coi_re <-
+    coi.new %>%
+    filter(`Trade Flow` == "Re-Export") %>%
+    full_join(coi.mirror_ri,
+              by = c("Reporter ISO" = "Partner ISO", "Partner ISO" = "Reporter ISO", "Year", "Commodity.code.6")) 
+  
+   
+  if(nrow(coi_re) != 0){
+    coi_re <- coi_re %>%
+      mutate(CIFValue_oecd.x = replace_na(CIFValue_oecd.x, 0)) %>%
+      mutate(CIFValue_unctad.x = replace_na(CIFValue_unctad.x, 0)) %>%
+      mutate(TradeValue_origin.x = replace_na(TradeValue_origin.x, 0)) %>%
+      mutate(CIFValue_default.x = replace_na(CIFValue_default.x, 0)) %>%
+      mutate(CIFValue_oecd.y = replace_na(CIFValue_oecd.y, 0)) %>%
+      mutate(CIFValue_unctad.y = replace_na(CIFValue_unctad.y, 0)) %>%
+      mutate(TradeValue_origin.y = replace_na(TradeValue_origin.y, 0)) %>%
+      mutate(CIFValue_default.y = replace_na(CIFValue_default.y, 0)) %>%
+      mutate(`Trade Flow.x` = ifelse(CIFValue_oecd.x == 0, "Re-Export", `Trade Flow.x`)) %>%
+      mutate(`Trade Flow.y` = ifelse(CIFValue_oecd.y == 0, "Re-Import", `Trade Flow.y`))
+    
+  }
+  
+   # Mirroring for Re-Import data of Egypt
+  coi.mirror_re <-
+    coi.mirror.new %>%
+    filter(`Trade Flow` == "Re-Export")
+
+  coi_ri <-
+    coi.new %>%
+    filter(`Trade Flow` == "Re-Import") %>%
+    full_join(coi.mirror_re,
+              by = c("Reporter ISO" = "Partner ISO", "Partner ISO" = "Reporter ISO", "Year", "Commodity.code.6"))
+  
+
+
+  if(nrow(coi_ri) != 0){
+    coi_ri <- coi_ri %>%
+      mutate(CIFValue_oecd.x = replace_na(CIFValue_oecd.x, 0)) %>%
+      mutate(CIFValue_unctad.x = replace_na(CIFValue_unctad.x, 0)) %>%
+      mutate(TradeValue_origin.x = replace_na(TradeValue_origin.x, 0)) %>%
+      mutate(CIFValue_default.x = replace_na(CIFValue_default.x, 0)) %>%
+      mutate(CIFValue_oecd.y = replace_na(CIFValue_oecd.y, 0)) %>%
+      mutate(CIFValue_unctad.y = replace_na(CIFValue_unctad.y, 0)) %>%
+      mutate(TradeValue_origin.y = replace_na(TradeValue_origin.y, 0)) %>%
+      mutate(CIFValue_default.y = replace_na(CIFValue_default.y, 0)) %>%
+      mutate(`Trade Flow.x` = ifelse(CIFValue_oecd.x == 0, "Re-Import", `Trade Flow.x`)) %>%
+      mutate(`Trade Flow.y` = ifelse(CIFValue_oecd.y == 0, "Re-Export", `Trade Flow.y`))
+    
+  }
+  
+  
+  
+  # Combine data
+  dspdf <- bind_rows(coi_e, coi_i, coi_ri, coi_re)
+  
+head(dspdf, 100) |> kable()
+```
+
+### calculating dsp
+```{r}
+# prepare totaldf for relative calculating
+  total_for_all <- total_df2
+  total_for_c <- total_df1
+  
+# calculate absolute and relative difference
+  dspdf.new <- dspdf %>%
+    # absolute value
+    mutate(diff_oecd = CIFValue_oecd.x - CIFValue_oecd.y) %>%
+    mutate(diff_unctad = CIFValue_unctad.x - CIFValue_unctad.y) %>%
+    mutate(diff_origin = TradeValue_origin.x - TradeValue_origin.y) %>%
+    mutate(diff_defualt = CIFValue_default.x - CIFValue_default.y) %>%
+    # relative value to this flow for specific commodity
+    full_join(total_for_c, by = c("Year", "Trade Flow.x" = "Trade Flow", "Commodity.code.6")) %>%
+    # using 0 to assign missing value
+    mutate(total_for_c_oecd = tidyr::replace_na(total_for_c_oecd, 0), total_for_c_origin = tidyr::replace_na(total_for_c_origin, 0), total_for_c_unctad = tidyr::replace_na(total_for_c_unctad, 0), total_for_c_default = tidyr::replace_na(total_for_c_default, 0)) %>%
+    mutate(ratio_to_total_c_origin = abs(diff_origin / total_for_c_origin)) %>%
+    mutate(ratio_to_total_c_oecd = abs(diff_oecd / total_for_c_oecd)) %>%
+    mutate(ratio_to_total_c_unctad = abs(diff_unctad / total_for_c_unctad)) %>%
+    mutate(ratio_to_total_c_default = abs(diff_defualt / total_for_c_default)) %>%
+    full_join(total_for_all, by = c("Year", "Trade Flow.x" = "Trade Flow")) %>%
+    mutate(total_for_all_oecd = tidyr::replace_na(total_for_all_oecd, 0), total_for_all_origin = tidyr::replace_na(total_for_all_origin, 0), total_for_all_unctad = tidyr::replace_na(total_for_all_unctad, 0), total_for_all_default = tidyr::replace_na(total_for_all_default, 0)) %>%
+    mutate(ratio_to_total_all_origin = abs(diff_origin / total_for_all_origin)) %>%
+    mutate(ratio_to_total_all_oecd = abs(diff_oecd / total_for_all_oecd)) %>%
+    mutate(ratio_to_total_all_unctad = abs(diff_unctad / total_for_all_unctad)) %>%
+    mutate(ratio_to_total_all_default = abs(diff_defualt / total_for_all_default)) %>%
+    select(Year, `Trade Flow.x`, `Reporter ISO`, `Reporter Code.x`, `Partner ISO`, Commodity.code.6, `Reporter Code.y`, `Trade Flow.y`, diff_origin, diff_oecd, diff_unctad, diff_defualt, ratio_to_total_c_origin, ratio_to_total_c_oecd, ratio_to_total_c_unctad, ratio_to_total_c_default, ratio_to_total_all_origin, ratio_to_total_all_oecd, ratio_to_total_all_unctad, ratio_to_total_all_default) %>%
+    mutate(`Trade Flow.y` = ifelse(is.na(`Reporter Code.y`), paste0(`Trade Flow.y`, "NA"), `Trade Flow.y`)) %>%
+    mutate(`Trade Flow.x` = ifelse(is.na(`Reporter Code.x`), paste0(`Trade Flow.x`, "NA"), `Trade Flow.x`)) %>%
+    select(-c(`Reporter Code.x`, `Reporter Code.y`))
+  
+  write.csv(dspdf.new, file = "dsp_Re.csv")
+  save(dspdf.new, file = "dspRe.rda")
+    
+    
+tail(dspdf.new, 100) |> kable()
+
+
+```

@@ -1,0 +1,90 @@
+---
+title: "WeightedValue"
+author: "Xiaohan Ma"
+date: "2023-01-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### get the average values: for entire dataset, by commodities
+```{r}
+# load packages
+library(tidyverse)
+library(data.table)
+library(summarytools)
+library(stargazer)
+library(knitr)
+
+x <- 0.06
+# load datasets
+# beta value from oecd
+load("data/beta_oecd_2016.rda")
+
+
+
+beta_oecd_weighted <-
+ beta_oecd_2016 %>%
+ mutate(value = tidyr::replace_na(Value, x)) %>%
+ mutate(TIME = as.character(TIME)) %>%
+ filter(Measure == "Value") %>%
+ select(TIME, REPORTER, PARTNER, COM_H3, value) %>%
+ group_by(COM_H3) %>%
+ summarise(AveragedOecd = mean(value))
+ 
+
+ 
+   
+  
+# beta value from unctad
+load("data/beta_unctad_2016.rda")
+ 
+beta_unctad_weighted <-
+  beta_unctad_2016 %>%
+  mutate(value = tidyr::replace_na(`Transport costs to FOB value`, x)) %>%
+  select(HS2012Product, value) %>%
+  mutate(value = value/100) %>%
+  mutate(HS2012Product = substring(HS2012Product, 1, 4)) %>%
+  group_by(HS2012Product) %>%
+  summarise(AveragedUnctad = mean(value))
+
+# default value
+load("data/beta_default_2016_4digit.rda")
+
+beta_default_weighted <-
+  beta_default %>%
+  group_by(HS2012Product) %>%
+  summarise(AveragedDefault = mean(value))
+ 
+
+
+# Weighted Value data frame
+
+AveragedValue_df <- beta_unctad_weighted %>%
+  full_join(beta_oecd_weighted, by = c("HS2012Product" = "COM_H3")) %>%
+  full_join(beta_default_weighted, by = "HS2012Product") %>%
+  rename(CommdityCode = "HS2012Product")
+  
+
+
+
+AveragedValue_df |> kable()
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

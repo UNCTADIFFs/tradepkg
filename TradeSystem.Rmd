@@ -1,0 +1,65 @@
+---
+title: 'Appendix: TradeSystem'
+author: "Xiaohan Ma"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r, include = FALSE}
+
+library(knitr)
+library(flextable)
+library(tidyverse)
+# global environment
+opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, results = 'asis')
+options(digits = 4)
+
+```
+
+
+Different countries may use different trade systems and thus being a likely factor of discrepancy between reporters' exports and their partners' imports. Therefore, we collected information of trade system that countries use and displayed it in our discrepancy data frame. 
+
+The information of trade system was collected from a survey conducted by UN Comtrade (https://comtrade.un.org/survey/Reports/byQuestion). Specifically, we focused on the results of 3 questions in this survey:
+
+- Q1: do you disseminate trade statistics only according to the general trade system?
+- Q2: do you disseminate trade statistics only according to the special trade system?
+- Q3: do you disseminated trade statistics according to both the general and special trade system?
+
+Yes, no, not applicable are responded. We organized the result and then followed the below rules to decide whether a country use general system or special system:
+
+- if Q1 is responded yes or Q3 is responded yes, then use general system.
+- if Q2 is responded yes, then use special system.
+
+Table below shows the result of the use of trade systems
+
+
+```{r}
+ load("data/countrykey.rda")
+
+SurveryQ1_Q5 <- read_csv("SurveryQ1-Q5.csv")
+
+SurveryQ1_Q5 <- SurveryQ1_Q5 %>%
+  select(Country, Q1Response, Q2Response, Q3Response) %>%
+  left_join(countrykey, by = c("Country" = "country_name")) %>%
+  select(-c(ISO2, country_code))
+
+
+survey_df <-  SurveryQ1_Q5 %>%
+  mutate(ISO3 = ifelse(Country == "Dominican Rep.", "DOM", ISO3)) %>%
+  mutate(ISO3 = ifelse(Country == "Marshall Isds", "MHL", ISO3)) %>%
+  mutate(ISO3 = ifelse(Country == "Switzerland", "CHE", ISO3)) %>%
+  mutate(ISO3 = ifelse(Country == "Bosnia Herzegovina", "BIH", ISO3)) %>%
+  mutate(ISO3 = ifelse(Country == "USA", "USA", ISO3)) %>%
+  mutate(ISO3 = ifelse(Country == "Cayman Isds", "CYM", ISO3))
+
+
+survey_df <- survey_df %>%
+  mutate(trade_system = case_when(Q1Response == "Yes" | Q3Response == "Yes" ~ "general",
+                                  Q2Response == "Yes" ~ "special"))
+
+
+flextable(survey_df)
+```
+
+
+
